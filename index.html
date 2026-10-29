@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#101820">
+<title>Interactive Chessboard</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:18px 12px 30px;background:#101820;color:#f4f7fb;font-family:Arial,Helvetica,sans-serif}
+main{width:100%;max-width:680px;margin:0 auto}
+header{text-align:center;margin:8px 0 18px}
+h1{font-size:clamp(24px,6vw,36px);margin:0 0 8px}
+header p{margin:0;color:#c3ced8;font-size:16px}
+.card{background:#1b2732;border:1px solid #344554;border-radius:18px;padding:12px;box-shadow:0 12px 30px #0005}
+.boardArea{display:grid;grid-template-columns:22px minmax(0,1fr);grid-template-rows:auto 22px;gap:4px;justify-content:center}
+.ranks{grid-column:1;grid-row:1;display:grid;grid-template-rows:repeat(8,1fr);align-items:center;text-align:center;font-weight:bold;color:#dce4eb}
+.board{grid-column:2;grid-row:1;width:100%;aspect-ratio:1/1;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));border:4px solid #293846;border-radius:7px;overflow:hidden;min-width:0}
+.files{grid-column:2;grid-row:2;display:grid;grid-template-columns:repeat(8,1fr);text-align:center;align-items:center;color:#dce4eb;font-weight:bold}
+.sq{appearance:none;-webkit-appearance:none;border:0;border-radius:0;margin:0;padding:0;min-width:0;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:Arial,Helvetica,sans-serif}
+.sq.light{background:#f0d9b5;color:#59442f}
+.sq.dark{background:#779556;color:#fff}
+.sq.selected{box-shadow:inset 0 0 0 4px #f5c542;z-index:1}
+.coord{position:absolute;left:3px;top:2px;font-size:clamp(8px,2vw,12px);font-weight:bold;opacity:.9}
+.piece{font-family:"DejaVu Sans","Segoe UI Symbol",serif;font-size:clamp(23px,7.5vw,54px);line-height:1;display:block}
+.whitePiece{color:#fff;text-shadow:0 1px 2px #222,0 0 2px #222}
+.blackPiece{color:#171717;text-shadow:0 1px 1px #ddd}
+.details{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.info{background:#101a23;border:1px solid #3a4b5a;border-radius:12px;padding:12px}
+.label{font-size:12px;letter-spacing:1px;color:#b7c4cf}
+.value{font-size:clamp(22px,5vw,30px);font-weight:800;color:#f5c542;margin-top:4px}
+#message{color:#d5dee7;line-height:1.5;margin:13px 2px}
+.controls{display:flex;gap:9px;flex-wrap:wrap}
+.controls button{flex:1;min-width:120px;padding:12px;border-radius:10px;border:1px solid #526577;background:#2b3b49;color:white;font-weight:bold;font-size:15px}
+h2{font-size:19px;margin:20px 0 8px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:9px 6px;text-align:left;border-bottom:1px solid #40505e}
+th{color:#f5d36c}
+.note{color:#aebbc7;font-size:12px;text-align:center;margin-top:16px}
+@media(max-width:430px){.details{grid-template-columns:1fr}.card{padding:9px}.board{border-width:3px}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>♟ Interactive Chessboard</h1><p>Tap any square to see its exact coordinate</p></header>
+<section class="card">
+<div class="boardArea">
+<div class="ranks" id="ranks"><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div>
+<div class="board" id="board" aria-label="Interactive 8 by 8 chessboard"></div>
+<div class="files" id="files"><span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span></div>
+</div>
+<div class="details" aria-live="polite">
+<div class="info"><div class="label">SELECTED SQUARE</div><div class="value" id="squareName">E4</div></div>
+<div class="info"><div class="label">POSITION</div><div class="value" id="position">File 5 · Rank 4</div></div>
+</div>
+<p id="message">You selected E4. File E, rank 4.</p>
+<div class="controls">
+<button type="button" id="reset">Reset selection</button>
+<button type="button" id="toggle">Hide pieces</button>
+</div>
+<h2>Chess piece names &amp; notation</h2>
+<table>
+<thead><tr><th>Piece</th><th>Notation</th><th>Piece</th><th>Notation</th></tr></thead>
+<tbody>
+<tr><td>King ♔</td><td>K</td><td>Queen ♕</td><td>Q</td></tr>
+<tr><td>Rook ♖</td><td>R</td><td>Bishop ♗</td><td>B</td></tr>
+<tr><td>Knight ♘</td><td>N</td><td>Pawn ♙</td><td>No letter</td></tr>
+</tbody></table>
+<p class="note">White pieces are at the bottom · Files run A–H · Ranks run 1–8</p>
+</section>
+</main>
+<script>
+(function(){
+"use strict";
+var files="abcdefgh";
+var board=document.getElementById("board");
+var selected="e4";
+var showPieces=true;
+var pieces={
+"a8":"♜","b8":"♞","c8":"♝","d8":"♛","e8":"♚","f8":"♝","g8":"♞","h8":"♜",
+"a7":"♟","b7":"♟","c7":"♟","d7":"♟","e7":"♟","f7":"♟","g7":"♟","h7":"♟",
+"a2":"♙","b2":"♙","c2":"♙","d2":"♙","e2":"♙","f2":"♙","g2":"♙","h2":"♙",
+"a1":"♖","b1":"♘","c1":"♗","d1":"♕","e1":"♔","f1":"♗","g1":"♘","h1":"♖"
+};
+var names={"♜":"rook","♞":"knight","♝":"bishop","♛":"queen","♚":"king","♟":"pawn","♖":"rook","♘":"knight","♗":"bishop","♕":"queen","♔":"king","♙":"pawn"};
+function update(){
+ var file=files.indexOf(selected.charAt(0))+1;
+ var rank=Number(selected.charAt(1));
+ document.getElementById("squareName").textContent=selected.toUpperCase();
+ document.getElementById("position").textContent="File "+file+" · Rank "+rank;
+ var piece=pieces[selected];
+ document.getElementById("message").textContent="You selected "+selected.toUpperCase()+". File "+selected.charAt(0).toUpperCase()+", rank "+rank+"."+(piece?" This square contains a "+names[piece]+".":" This square is empty.");
+}
+function draw(){
+ board.innerHTML="";
+ for(var rank=8;rank>=1;rank--){
+  for(var f=0;f<8;f++){
+   var name=files.charAt(f)+rank;
+   var isLight=((8-rank+f)%2===0);
+   var btn=document.createElement("button");
+   btn.type="button";
+   btn.className="sq "+(isLight?"light":"dark")+(name===selected?" selected":"");
+   btn.setAttribute("aria-label",name.toUpperCase()+(pieces[name]?", "+names[pieces[name]]:" empty"));
+   btn.setAttribute("title",name.toUpperCase());
+   var coord=document.createElement("span");
+   coord.className="coord";
+   coord.textContent=name.toUpperCase();
+   btn.appendChild(coord);
+   if(showPieces&&pieces[name]){
+    var pieceEl=document.createElement("span");
+    pieceEl.className="piece "+(rank<=2?"whitePiece":"blackPiece");
+    pieceEl.textContent=pieces[name];
+    btn.appendChild(pieceEl);
+   }
+   btn.addEventListener("click",(function(square){return function(){selected=square;update();draw();};})(name));
+   board.appendChild(btn);
+  }
+ }
+}
+document.getElementById("reset").addEventListener("click",function(){selected="e4";update();draw();});
+document.getElementById("toggle").addEventListener("click",function(){showPieces=!showPieces;this.textContent=showPieces?"Hide pieces":"Show pieces";draw();});
+update();draw();
+})();
+</script>
+</body>
+</html>
